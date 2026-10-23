@@ -18,7 +18,7 @@
 
   var CSS = [
     ".flcr-avis{--fa-navy:#0A1933;--fa-navy-2:#16284A;--fa-text:#F2F2F2;--fa-muted:#AEB6C6;--fa-gold:#FBBC04;--fa-star-off:#3A4560;--fa-ink:#0A1933;--fa-ink-muted:#5B6475;--fa-gap:24px;",
-    "font-family:Montserrat,'Montserrat Fallback',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--fa-ink);box-sizing:border-box;width:100%;max-width:1200px;margin:0 auto;padding:8px 0;min-height:360px}",
+    "font-family:Montserrat,'Montserrat Fallback',system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--fa-ink);box-sizing:border-box;width:100%;max-width:1200px;margin:0 auto;padding:8px 0 56px;min-height:360px}",
     ".flcr-avis *,.flcr-avis *::before,.flcr-avis *::after{box-sizing:border-box}",
     ".flcr-avis.fa-ready{min-height:0}",
     ".fa-head{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:0 64px 28px}",
@@ -28,10 +28,8 @@
     ".fa-title{margin:0;font-size:20px;font-weight:600;letter-spacing:.2px;color:var(--fa-ink);line-height:1.2}",
     ".fa-summary{display:flex;align-items:center;gap:8px;margin-top:4px;font-size:15px;color:var(--fa-ink-muted)}",
     ".fa-summary strong{font-size:17px;font-weight:600;color:var(--fa-ink)}",
-    ".fa-cta{display:inline-flex;align-items:center;gap:8px;padding:12px 22px;background:var(--fa-navy);color:#fff!important;text-decoration:none!important;font-size:14px;font-weight:500;letter-spacing:.4px;border:1px solid var(--fa-navy);border-radius:4px;transition:background .2s,color .2s}",
-    ".fa-cta:hover{background:transparent;color:var(--fa-navy)!important}",
     ".fa-stage{position:relative;padding:0 64px}",
-    ".fa-track{display:flex;gap:var(--fa-gap);overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:4px 2px 26px;margin:0 0 -18px;list-style:none}",
+    ".fa-track{display:flex;gap:var(--fa-gap);overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:4px 0 26px;margin:0 0 -18px;list-style:none}",
     ".fa-track::-webkit-scrollbar{display:none}",
     ".fa-card{flex:0 0 calc((100% - 2 * var(--fa-gap)) / 3);scroll-snap-align:start;background:var(--fa-navy);color:var(--fa-text);border-radius:12px;padding:26px 24px 22px;display:flex;flex-direction:column;box-shadow:0 10px 22px -16px rgba(10,25,51,.6);position:relative;min-width:0}",
     ".flcr-avis[data-cols='2'] .fa-card{flex-basis:calc((100% - var(--fa-gap)) / 2)}",
@@ -63,16 +61,16 @@
     ".fa-dots{display:none;justify-content:center;gap:8px;margin-top:22px}",
     ".fa-dot{width:8px;height:8px;border-radius:50%;background:#C9CDD6;border:0;padding:0;cursor:pointer;transition:width .2s,background .2s}",
     ".fa-dot[aria-current='true']{width:22px;border-radius:4px;background:var(--fa-navy)}",
-    ".fa-foot{margin:16px 64px 0;font-size:11px;line-height:1.5;color:#8A92A3;text-align:center;letter-spacing:.2px}",
+    ".fa-foot{margin:26px 64px 0;font-size:11px;line-height:1.5;color:#8A92A3;text-align:center;letter-spacing:.2px}",
     ".fa-foot a{color:#8A92A3;text-decoration:underline;text-underline-offset:2px}",
     ".flcr-avis[data-cols='1'] .fa-head{margin:0 4px 22px}",
     ".flcr-avis[data-cols='1'] .fa-stage{padding:0}",
     ".flcr-avis[data-cols='1'] .fa-nav{display:none}",
     ".flcr-avis[data-cols='1'] .fa-dots{display:flex}",
-    ".flcr-avis[data-cols='1'] .fa-foot{margin:14px 4px 0}",
+    ".flcr-avis[data-cols='1'] .fa-foot{margin:22px 4px 0}",".flcr-avis[data-cols='1']{padding-bottom:40px}",
     ".flcr-avis[data-cols='1'] .fa-card{padding:22px 20px 20px}",
     ".flcr-avis[data-cols='1'] .fa-title{font-size:18px}",
-    "@media (prefers-reduced-motion:reduce){.fa-track{scroll-behavior:auto}}"
+    "@media (prefers-reduced-motion:reduce){.fa-card{transition:none}}"
   ].join("");
 
   function injectStyle() {
@@ -129,7 +127,6 @@
     var count = Number(data.count) || reviews.length;
     var rating = Number(data.rating) || 0;
     var reviewsUrl = safeUrl(data.reviews_url);
-    var writeUrl = safeUrl(data.write_url);
 
     var head =
       '<div class="fa-head">' +
@@ -137,25 +134,29 @@
       '<h2 class="fa-title">Nos avis clients</h2>' +
       '<div class="fa-summary"><strong>' + fmtNum(rating) + "</strong>" + stars(rating, "Note moyenne " + fmtNum(rating) + " sur 5") +
       "<span>" + count + " avis Google</span></div></div></div>" +
-      (writeUrl ? '<a class="fa-cta" href="' + esc(writeUrl) + '" target="_blank" rel="noopener">Laisser un avis</a>' : "") +
       "</div>";
 
-    var cards = reviews
-      .map(function (r) {
-        var name = r.name || "Client";
-        var link = safeUrl(r.link) || reviewsUrl;
-        return (
-          '<li class="fa-card">' +
-          (link ? '<a class="fa-g" href="' + esc(link) + '" target="_blank" rel="noopener" aria-label="Voir l\'avis de ' + esc(name) + ' sur Google">' + G_ICON + "</a>" : '<span class="fa-g">' + G_ICON + "</span>") +
-          '<div class="fa-top"><span class="fa-avatar" aria-hidden="true">' + esc(name.charAt(0).toUpperCase()) + "</span><div style=\"min-width:0\">" +
-          '<p class="fa-name">' + esc(name) + "</p>" +
-          '<div class="fa-meta">' + stars(r.rating) + '<span class="fa-date">' + esc(fmtDate(r.date)) + "</span></div></div></div>" +
-          '<p class="fa-text">' + esc(r.text) + "</p>" +
-          '<button type="button" class="fa-more" hidden aria-expanded="false">Lire la suite</button>' +
-          "</li>"
-        );
-      })
-      .join("");
+    function card(r, i, clone) {
+      var name = r.name || "Client";
+      var link = safeUrl(r.link) || reviewsUrl;
+      var ti = clone ? ' tabindex="-1"' : "";
+      return (
+        '<li class="fa-card" data-i="' + i + '"' + (clone ? ' aria-hidden="true"' : "") + ">" +
+        (link ? '<a class="fa-g" href="' + esc(link) + '" target="_blank" rel="noopener"' + ti + ' aria-label="Voir l\'avis de ' + esc(name) + ' sur Google">' + G_ICON + "</a>" : '<span class="fa-g">' + G_ICON + "</span>") +
+        '<div class="fa-top"><span class="fa-avatar" aria-hidden="true">' + esc(name.charAt(0).toUpperCase()) + "</span><div style=\"min-width:0\">" +
+        '<p class="fa-name">' + esc(name) + "</p>" +
+        '<div class="fa-meta">' + stars(r.rating) + '<span class="fa-date">' + esc(fmtDate(r.date)) + "</span></div></div></div>" +
+        '<p class="fa-text">' + esc(r.text) + "</p>" +
+        '<button type="button" class="fa-more"' + ti + ' hidden aria-expanded="false">Lire la suite</button>' +
+        "</li>"
+      );
+    }
+    // Boucle infinie : la liste est rendue 3 fois (copie / originaux / copie) dès qu'il y a plus de 3 avis
+    var loop = reviews.length > 3;
+    function set(clone) {
+      return reviews.map(function (r, i) { return card(r, i, clone); }).join("");
+    }
+    var cards = loop ? set(true) + set(false) + set(true) : set(false);
 
     var foot =
       '<p class="fa-foot">Avis Google non modifiés, du plus récent au plus ancien' +
@@ -167,7 +168,7 @@
       (reviews.length
         ? '<div class="fa-stage">' +
           '<button type="button" class="fa-nav fa-prev" aria-label="Avis précédents">' + CHEVRON_L + "</button>" +
-          '<ul class="fa-track" aria-label="Avis clients">' + cards + "</ul>" +
+          '<ul class="fa-track" aria-label="Avis clients"' + (loop ? ' data-loop="1"' : "") + ">" + cards + "</ul>" +
           '<button type="button" class="fa-nav fa-next" aria-label="Avis suivants">' + CHEVRON_R + "</button>" +
           '</div><div class="fa-dots" role="tablist" aria-label="Pagination des avis"></div>'
         : "") +
@@ -176,54 +177,105 @@
     root.setAttribute("role", "region");
     root.setAttribute("aria-label", "Avis clients Google");
 
-    if (reviews.length) wire(root);
+    if (reviews.length) wire(root, reviews.length, loop);
   }
 
-  function wire(root) {
+  function wire(root, n, loop) {
     var track = root.querySelector(".fa-track");
     var prev = root.querySelector(".fa-prev");
     var next = root.querySelector(".fa-next");
     var dotsBox = root.querySelector(".fa-dots");
     var cards = Array.prototype.slice.call(root.querySelectorAll(".fa-card"));
+    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var anim = null, target = null, settleT = null;
 
     function cols() {
       var w = root.clientWidth;
       return w >= 900 ? 3 : w >= 600 ? 2 : 1;
     }
-
     function step() {
       var gap = parseFloat(getComputedStyle(track).columnGap || getComputedStyle(track).gap) || 0;
       return cards[0] ? cards[0].getBoundingClientRect().width + gap : track.clientWidth;
     }
-
-    function pages() {
-      var c = cols();
-      return c === 1 ? cards.length : Math.max(1, cards.length - c + 1);
+    function maxIdx() {
+      return loop ? 3 * n - 1 : Math.max(0, n - cols());
     }
-
-    function index() {
+    function posIdx() {
       return Math.round(track.scrollLeft / step());
+    }
+    function logical(i) {
+      return ((i % n) + n) % n;
+    }
+    function setSnap(on) {
+      track.style.scrollSnapType = on ? "" : "none";
+    }
+    // Saut invisible d'une copie à l'autre (contenu identique) pour donner l'impression d'un défilement continu
+    function normalize() {
+      if (!loop || anim) return;
+      var s = step(), w = n * s, x = track.scrollLeft;
+      if (x < w - s / 2 || x >= 2 * w - s / 2) {
+        setSnap(false);
+        track.scrollLeft = x + (x < w - s / 2 ? w : -w);
+        requestAnimationFrame(function () { setSnap(true); });
+      }
+    }
+    function ease(t) {
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+    function goTo(i, dur) {
+      if (!loop) i = Math.max(0, Math.min(maxIdx(), i));
+      target = i;
+      var from = track.scrollLeft, to = i * step();
+      if (anim) cancelAnimationFrame(anim);
+      if (reduce || !dur) {
+        setSnap(false);
+        track.scrollLeft = to;
+        anim = null;
+        requestAnimationFrame(function () { setSnap(true); normalize(); update(); });
+        return;
+      }
+      setSnap(false);
+      var t0 = null;
+      function frame(ts) {
+        if (t0 === null) t0 = ts;
+        var p = Math.min(1, (ts - t0) / dur);
+        track.scrollLeft = from + (to - from) * ease(p);
+        if (p < 1) anim = requestAnimationFrame(frame);
+        else {
+          anim = null;
+          target = null;
+          setSnap(true);
+          normalize();
+          update();
+        }
+      }
+      anim = requestAnimationFrame(frame);
+    }
+    function move(d, dur) {
+      goTo((target !== null ? target : posIdx()) + d, dur);
     }
 
     function buildDots() {
-      var n = pages();
+      var count = cols() === 1 ? n : Math.max(1, loop ? n : n - cols() + 1);
       var html = "";
-      for (var i = 0; i < n; i++) html += '<button type="button" class="fa-dot" aria-label="Avis ' + (i + 1) + '"></button>';
+      for (var i = 0; i < count; i++) html += '<button type="button" class="fa-dot" aria-label="Avis ' + (i + 1) + '"></button>';
       dotsBox.innerHTML = html;
       Array.prototype.forEach.call(dotsBox.children, function (d, i) {
         d.addEventListener("click", function () {
-          track.scrollTo({ left: i * step() });
+          pause();
+          goTo(loop ? n + i : i, 700);
         });
       });
     }
 
     function update() {
-      var max = track.scrollWidth - track.clientWidth - 2;
-      prev.disabled = track.scrollLeft <= 2;
-      next.disabled = track.scrollLeft >= max;
-      var i = Math.min(index(), pages() - 1);
+      if (!loop) {
+        prev.disabled = track.scrollLeft <= 2;
+        next.disabled = track.scrollLeft >= track.scrollWidth - track.clientWidth - 2;
+      }
+      var i = loop ? logical(posIdx()) : posIdx();
       Array.prototype.forEach.call(dotsBox.children, function (d, k) {
-        d.setAttribute("aria-current", k === i ? "true" : "false");
+        d.setAttribute("aria-current", k === Math.min(i, dotsBox.children.length - 1) ? "true" : "false");
       });
     }
 
@@ -236,58 +288,62 @@
       });
     }
 
+    var lastCols = null;
     function layout() {
-      var c = String(cols());
-      if (root.getAttribute("data-cols") !== c) {
-        root.setAttribute("data-cols", c);
+      var c = cols();
+      var keep = lastCols === null ? (loop ? n : 0) : (loop ? n + logical(posIdx()) : posIdx());
+      if (lastCols !== c) {
+        lastCols = c;
+        root.setAttribute("data-cols", String(c));
         buildDots();
       }
       checkClamp();
+      if (!anim) goTo(keep, 0);
       update();
     }
 
-    prev.addEventListener("click", function () {
-      track.scrollBy({ left: -step() });
-    });
-    next.addEventListener("click", function () {
-      track.scrollBy({ left: step() });
-    });
+    prev.addEventListener("click", function () { pause(); move(-1, 700); });
+    next.addEventListener("click", function () { pause(); move(1, 700); });
     track.addEventListener("scroll", function () {
-      window.requestAnimationFrame(update);
+      if (anim) return;
+      requestAnimationFrame(update);
+      clearTimeout(settleT);
+      settleT = setTimeout(function () { normalize(); update(); }, 160);
     }, { passive: true });
     track.addEventListener("keydown", function (e) {
-      if (e.key === "ArrowRight") { track.scrollBy({ left: step() }); e.preventDefault(); }
-      if (e.key === "ArrowLeft") { track.scrollBy({ left: -step() }); e.preventDefault(); }
+      if (e.key === "ArrowRight") { pause(); move(1, 700); e.preventDefault(); }
+      if (e.key === "ArrowLeft") { pause(); move(-1, 700); e.preventDefault(); }
     });
     track.tabIndex = 0;
 
+    // "Lire la suite" synchronisé entre un avis et ses copies
     cards.forEach(function (card) {
-      var b = card.querySelector(".fa-more");
-      b.addEventListener("click", function () {
-        var open = card.classList.toggle("fa-open");
-        b.textContent = open ? "Réduire" : "Lire la suite";
-        b.setAttribute("aria-expanded", open ? "true" : "false");
+      card.querySelector(".fa-more").addEventListener("click", function () {
+        var open = !card.classList.contains("fa-open");
+        cards.forEach(function (c) {
+          if (c.getAttribute("data-i") !== card.getAttribute("data-i")) return;
+          c.classList.toggle("fa-open", open);
+          var b = c.querySelector(".fa-more");
+          b.textContent = open ? "Réduire" : "Lire la suite";
+          b.setAttribute("aria-expanded", open ? "true" : "false");
+        });
       });
     });
 
-    // Défilement automatique doux : pause au survol, au toucher, au clavier et quand un avis est déplié
-    var AUTO_MS = 6000, hold = 0, hover = false, visible = true;
-    var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    // Défilement automatique lent et fluide : pause au survol, au toucher, au clavier et quand un avis est déplié
+    var AUTO_MS = 5500, AUTO_DUR = 1200, hold = 0, hover = false, visible = true;
     function pause(ms) { hold = Date.now() + (ms || 15000); }
     function tick() {
-      if (reduce || hover || !visible || document.hidden || Date.now() < hold) return;
-      if (root.querySelector(".fa-open") || cards.length <= cols()) return;
-      var max = track.scrollWidth - track.clientWidth - 2;
-      if (track.scrollLeft >= max) track.scrollTo({ left: 0 });
-      else track.scrollBy({ left: step() });
+      if (reduce || hover || !visible || document.hidden || Date.now() < hold || anim) return;
+      if (root.querySelector(".fa-open") || n <= cols()) return;
+      if (!loop && track.scrollLeft >= track.scrollWidth - track.clientWidth - 2) goTo(0, AUTO_DUR);
+      else move(1, AUTO_DUR);
     }
     root.addEventListener("mouseenter", function () { hover = true; });
     root.addEventListener("mouseleave", function () { hover = false; });
     root.addEventListener("focusin", function () { pause(20000); });
-    track.addEventListener("touchstart", function () { pause(20000); }, { passive: true });
+    track.addEventListener("touchstart", function () { pause(20000); if (anim) { cancelAnimationFrame(anim); anim = null; target = null; setSnap(true); } }, { passive: true });
     track.addEventListener("wheel", function () { pause(); }, { passive: true });
-    [prev, next].forEach(function (b) { b.addEventListener("click", function () { pause(); }); });
-    dotsBox.addEventListener("click", function () { pause(); });
     if (window.IntersectionObserver) new IntersectionObserver(function (e) { visible = e[0].isIntersecting; }).observe(root);
     setInterval(tick, AUTO_MS);
 
