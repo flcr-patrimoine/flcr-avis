@@ -30,7 +30,7 @@
     ".fa-summary strong{font-size:17px;font-weight:600;color:var(--fa-ink)}",
     ".fa-stage{position:relative;padding:0 64px}",
     ".flcr-avis .fa-track{display:flex;gap:var(--fa-gap);overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:4px 0 26px!important;margin:0 0 -18px!important;list-style:none!important}",
-    ".fa-track::-webkit-scrollbar{display:none}",".flcr-avis .fa-card{margin:0!important;list-style:none!important}",
+    ".fa-track::-webkit-scrollbar{display:none}","@media (hover:hover) and (pointer:fine){.flcr-avis .fa-track{cursor:grab}}",".flcr-avis .fa-track.fa-dragging{cursor:grabbing;user-select:none;-webkit-user-select:none}",".flcr-avis .fa-track.fa-dragging a{pointer-events:none}",".flcr-avis .fa-card{margin:0!important;list-style:none!important}",
     ".fa-card{flex:0 0 calc((100% - 2 * var(--fa-gap)) / 3);scroll-snap-align:start;background:var(--fa-navy);color:var(--fa-text);border-radius:12px;padding:28px 28px 24px;display:flex;flex-direction:column;box-shadow:0 10px 22px -16px rgba(10,25,51,.6);position:relative;min-width:0}",
     ".flcr-avis[data-cols='2'] .fa-card{flex-basis:calc((100% - var(--fa-gap)) / 2)}",
     ".flcr-avis[data-cols='1'] .fa-card{flex-basis:88%}",
@@ -191,7 +191,7 @@
     var dotsBox = root.querySelector(".fa-dots");
     var cards = Array.prototype.slice.call(root.querySelectorAll(".fa-card"));
     var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    var anim = null, target = null, settleT = null;
+    var anim = null, target = null, settleT = null, drag = null;
 
     function cols() {
       var w = root.clientWidth;
@@ -215,7 +215,7 @@
     }
     // Saut invisible d'une copie à l'autre (contenu identique) pour donner l'impression d'un défilement continu
     function normalize() {
-      if (!loop || anim) return;
+      if (!loop || anim || drag) return;
       var s = step(), w = n * s, x = track.scrollLeft;
       if (x < w - s / 2 || x >= 2 * w - s / 2) {
         setSnap(false);
@@ -226,7 +226,11 @@
     function ease(t) {
       return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
     }
-    function goTo(i, dur) {
+    function easeOut(t) {
+      return 1 - Math.pow(1 - t, 3);
+    }
+    function goTo(i, dur, fn) {
+      fn = fn || ease;
       if (!loop) i = Math.max(0, Math.min(maxIdx(), i));
       target = i;
       var from = track.scrollLeft, to = i * step();
@@ -243,7 +247,7 @@
       function frame(ts) {
         if (t0 === null) t0 = ts;
         var p = Math.min(1, (ts - t0) / dur);
-        track.scrollLeft = from + (to - from) * ease(p);
+        track.scrollLeft = from + (to - from) * fn(p);
         if (p < 1) anim = requestAnimationFrame(frame);
         else {
           anim = null;
@@ -319,6 +323,66 @@
       if (e.key === "ArrowLeft") { pause(); move(-1, 700); e.preventDefault(); }
     });
     track.tabIndex = 0;
+
+    // Glisser à la souris sur ordinateur : suit le curseur puis termine avec l'élan et s'aligne en douceur
+    track.addEventListener("pointerdown", function (e) {
+      if (e.pointerType !== "mouse" || e.button !== 0) return;
+      if (anim) { cancelAnimationFrame(anim); anim = null; target = null; }
+      setSnap(false);
+      drag = { x: e.clientX, start: track.scrollLeft, moved: false, id: e.pointerId, pts: [[e.timeStamp, e.clientX]] };
+    });
+    track.addEventListener("pointermove", function (e) {
+      if (!drag || e.pointerId !== drag.id) return;
+      var dx = e.clientX - drag.x;
+      if (!drag.moved) {
+        if (Math.abs(dx) < 5) return;
+        drag.moved = true;
+        track.classList.add("fa-dragging");
+        try { track.setPointerCapture(e.pointerId); } catch (err) {}
+        pause(20000);
+      }
+      var x = drag.start - dx;
+      if (loop) {
+        var s = step(), w = n * s;
+        if (x < w - s / 2) { drag.start += w; x += w; }
+        else if (x >= 2 * w - s / 2) { drag.start -= w; x -= w; }
+      }
+      track.scrollLeft = x;
+      drag.pts.push([e.timeStamp, e.clientX]);
+      if (drag.pts.length > 6) drag.pts.shift();
+      e.preventDefault();
+    });
+    function endDrag(e) {
+      if (!drag || (e && e.pointerId !== drag.id)) return;
+      var d = drag;
+      drag = null;
+      track.classList.remove("fa-dragging");
+      if (!d.moved) { setSnap(true); return; }
+      d.suppress = true;
+      lastDrag = d;
+      setTimeout(function () { d.suppress = false; }, 80);
+      // Vitesse sur les 100 dernières ms ; nulle si la souris s'est arrêtée avant d'être relâchée
+      var b = d.pts[d.pts.length - 1], a = b, v = 0;
+      for (var k = d.pts.length - 2; k >= 0 && b[0] - d.pts[k][0] <= 100; k--) a = d.pts[k];
+      if (a !== b && (!e || e.timeStamp - b[0] < 80)) v = (b[1] - a[1]) / Math.max(1, b[0] - a[0]);
+      var s = step(), from = posIdx();
+      var proj = (track.scrollLeft - v * 260) / s;
+      var i = Math.round(proj);
+      var maxJump = Math.max(1, cols());
+      i = Math.max(Math.round(track.scrollLeft / s) - maxJump, Math.min(Math.round(track.scrollLeft / s) + maxJump, i));
+      var dist = Math.abs(i * s - track.scrollLeft);
+      goTo(i, Math.max(380, Math.min(900, 300 + dist * 0.9)), easeOut);
+      pause(15000);
+    }
+    var lastDrag = null;
+    track.addEventListener("pointerup", endDrag);
+    track.addEventListener("pointercancel", endDrag);
+    track.addEventListener("lostpointercapture", endDrag);
+    // Après un glisser, le clic qui suit (sur un lien ou "Lire la suite") est ignoré
+    track.addEventListener("click", function (e) {
+      if (lastDrag && lastDrag.suppress) { e.preventDefault(); e.stopPropagation(); lastDrag.suppress = false; }
+    }, true);
+    track.addEventListener("dragstart", function (e) { e.preventDefault(); });
 
     // "Lire la suite" synchronisé entre un avis et ses copies
     cards.forEach(function (card) {
