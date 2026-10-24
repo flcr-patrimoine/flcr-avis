@@ -2,7 +2,10 @@
  * FLCR Patrimoine - Confort des formulaires du site
  * 1. Téléphone : mise en forme 06 12 34 56 78, pas de 11e chiffre, envoi bloqué si numéro invalide
  *    (international accepté : +33 6 12 34 56 78, +41 79 123 45 67, 0044…).
- * 2. Message : la zone ne se redimensionne plus à la main, elle s'agrandit toute seule avec le texte.
+ * 2. E-mail : envoi bloqué si l'adresse est mal formée, suggestion en cas de faute de frappe
+ *    (gmial.com -> gmail.com, .con -> .com…), un clic corrige.
+ * 3. Message : la zone ne se redimensionne plus à la main, elle s'agrandit toute seule avec le texte.
+ * 4. Champs obligatoires sans libellé visible : une étoile est ajoutée au texte d'exemple (Nom *).
  * Intégration : <script src="https://flcr-patrimoine.github.io/flcr-avis/formulaires.js" defer></script>
  */
 (function () {
@@ -10,11 +13,45 @@
   if (window.__flcrFormulaires) return;
   window.__flcrFormulaires = true;
 
-  /* ---------- Message : hauteur automatique ---------- */
   var css = document.createElement("style");
-  css.textContent = "form textarea{resize:none!important;overflow-y:hidden;}";
+  css.textContent =
+    "form textarea{resize:none!important;overflow-y:hidden;}" +
+    ".flcr-msg{color:#E0584D;font-size:13px;line-height:1.4;margin-top:6px;}" +
+    ".flcr-msg button{all:unset;cursor:pointer;text-decoration:underline;font-weight:600;color:inherit;}";
   (document.head || document.documentElement).appendChild(css);
 
+  /* ---------- Message d'aide sous un champ ---------- */
+  function hint(inp, text, fix) {
+    var box = inp.parentNode, el = box && box.querySelector(".flcr-msg");
+    if (text && !el && box) {
+      el = document.createElement("div");
+      el.className = "flcr-msg";
+      el.setAttribute("role", "alert");
+      box.appendChild(el);
+    }
+    if (el) {
+      el.textContent = text || "";
+      if (text && fix) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.textContent = fix;
+        b.addEventListener("click", function () {
+          inp.value = fix;
+          inp.dataset.flcrOk = "";
+          hint(inp, null);
+          inp.focus();
+        });
+        el.textContent = "Vouliez-vous dire ";
+        el.appendChild(b);
+        el.appendChild(document.createTextNode(" ?"));
+      }
+      el.style.display = text ? "block" : "none";
+    }
+    inp.setCustomValidity(text && !fix ? text : "");
+    inp.setAttribute("aria-invalid", text ? "true" : "false");
+  }
+
+  /* ---------- Message : hauteur automatique ---------- */
   function grow(t) {
     if (!t.dataset.flcrMin) t.dataset.flcrMin = t.offsetHeight || 80;
     var min = +t.dataset.flcrMin, max = Math.round(window.innerHeight * 0.6);
@@ -27,9 +64,9 @@
   function isArea(t) { return t && t.tagName === "TEXTAREA" && t.form; }
 
   /* ---------- Téléphone ---------- */
-  var MSG = "Numéro invalide : 10 chiffres, par exemple 06 12 34 56 78 (ou format international +33…)";
+  var MSG_TEL = "Numéro invalide : 10 chiffres, par exemple 06 12 34 56 78 (ou format international +33…)";
   function digits(v) { return String(v || "").replace(/[^\d+]/g, ""); }
-  function valid(v) {
+  function telOk(v) {
     var d = digits(v);
     if (!d) return true; /* champ vide : géré par le caractère obligatoire du formulaire */
     if (/^0[1-9]\d{8}$/.test(d)) return true;
@@ -37,52 +74,89 @@
     if (/^(\+|00)(?!33)[1-9]\d{6,13}$/.test(d)) return true;
     return false;
   }
-  function format(v) {
+  function telFormat(v) {
     var d = digits(v);
     if (/^0[1-9]\d{8}$/.test(d)) return d.replace(/(\d{2})(?=\d)/g, "$1 ");
     if (/^\+33[1-9]\d{8}$/.test(d)) return "+33 " + d.slice(3, 4) + " " + d.slice(4).replace(/(\d{2})(?=\d)/g, "$1 ");
     return v;
   }
-  function hint(inp, show) {
-    var box = inp.parentNode, el = box && box.querySelector(".flcr-tel-msg");
-    if (show && !el && box) {
-      el = document.createElement("div");
-      el.className = "flcr-tel-msg";
-      el.setAttribute("role", "alert");
-      el.style.cssText = "color:#E0584D;font-size:13px;line-height:1.4;margin-top:6px;";
-      el.textContent = MSG;
-      box.appendChild(el);
-    }
-    if (el) el.style.display = show ? "block" : "none";
-    inp.setCustomValidity(show ? MSG : "");
-    inp.setAttribute("aria-invalid", show ? "true" : "false");
-  }
   function isTel(t) { return t && t.tagName === "INPUT" && t.type === "tel"; }
 
+  /* ---------- E-mail ---------- */
+  var MSG_MAIL = "Adresse e-mail invalide, par exemple prenom.nom@gmail.com";
+  var TYPOS = {
+    "gmial.com": "gmail.com", "gmal.com": "gmail.com", "gmaill.com": "gmail.com", "gamil.com": "gmail.com",
+    "gnail.com": "gmail.com", "gmai.com": "gmail.com", "gmail.co": "gmail.com", "gmail.cm": "gmail.com",
+    "gmail.om": "gmail.com", "gmail.fr": "gmail.com", "gmail.cmo": "gmail.com", "gmeil.com": "gmail.com",
+    "hotmial.com": "hotmail.com", "hotmal.com": "hotmail.com", "hotmil.com": "hotmail.com", "hotmai.com": "hotmail.com",
+    "homail.com": "hotmail.com", "hotmial.fr": "hotmail.fr", "hotmal.fr": "hotmail.fr", "hotmil.fr": "hotmail.fr",
+    "hotmai.fr": "hotmail.fr", "homail.fr": "hotmail.fr", "hotmail.co": "hotmail.com",
+    "outlok.com": "outlook.com", "outloo.com": "outlook.com", "outlook.co": "outlook.com", "outlok.fr": "outlook.fr",
+    "yaho.fr": "yahoo.fr", "yahooo.fr": "yahoo.fr", "yaho.com": "yahoo.com", "yahooo.com": "yahoo.com",
+    "oragne.fr": "orange.fr", "orage.fr": "orange.fr", "ornage.fr": "orange.fr", "orange.fe": "orange.fr",
+    "wanadoo.com": "wanadoo.fr", "wanado.fr": "wanadoo.fr", "laposte.fr": "laposte.net", "lapost.net": "laposte.net",
+    "fre.fr": "free.fr", "icloud.fr": "icloud.com", "iclould.com": "icloud.com", "icoud.com": "icloud.com"
+  };
+  function mailClean(v) { return String(v || "").trim().replace(/\s+/g, "").toLowerCase(); }
+  function mailOk(v) { return !v || /^[^@\s]+@[^@\s.]+(\.[^@\s.]+)*\.[a-z]{2,}$/i.test(v); }
+  function mailSuggest(v) {
+    var at = v.lastIndexOf("@");
+    if (at < 1) return null;
+    var dom = v.slice(at + 1), fixed = TYPOS[dom];
+    if (!fixed) {
+      var t = dom.replace(/\.(con|cmo|vom|cpm|coom|comm|cim)$/, ".com").replace(/\.(frr|fe|dr|ft)$/, ".fr");
+      if (t !== dom) fixed = TYPOS[t] || t;
+    }
+    return fixed ? v.slice(0, at + 1) + fixed : null;
+  }
+  function isMail(t) { return t && t.tagName === "INPUT" && t.type === "email"; }
+  function checkMail(inp, strict) {
+    var v = mailClean(inp.value);
+    if (inp.value !== v) inp.value = v;
+    if (!v) { hint(inp, null); return true; }
+    if (!mailOk(v)) { hint(inp, MSG_MAIL); return false; }
+    var s = mailSuggest(v);
+    if (s && inp.dataset.flcrOk !== v) {
+      hint(inp, "x", s);
+      if (strict) { inp.dataset.flcrOk = v; return false; } /* 1er envoi bloqué ; si la personne confirme, on laisse passer */
+      return true;
+    }
+    hint(inp, null);
+    return true;
+  }
+
+  /* ---------- Écoutes ---------- */
   document.addEventListener("input", function (e) {
     var t = e.target;
     if (isArea(t)) { grow(t); return; }
-    if (!isTel(t)) return;
-    var d = digits(t.value);
-    if (/^0/.test(d) && d.length > 10) t.value = format(d.slice(0, 10)); /* pas de 11e chiffre */
-    if (t.getAttribute("aria-invalid") === "true") hint(t, !valid(t.value));
+    if (isTel(t)) {
+      var d = digits(t.value);
+      if (/^0/.test(d) && d.length > 10) t.value = telFormat(d.slice(0, 10)); /* pas de 11e chiffre */
+      if (t.getAttribute("aria-invalid") === "true") hint(t, telOk(t.value) ? null : MSG_TEL);
+    }
+    if (isMail(t) && t.getAttribute("aria-invalid") === "true") {
+      var v = mailClean(t.value);
+      if (mailOk(v) && !mailSuggest(v)) hint(t, null);
+    }
   }, true);
 
   document.addEventListener("focusout", function (e) {
     var t = e.target;
-    if (!isTel(t) || !t.value.trim()) return;
-    t.value = format(t.value);
-    hint(t, !valid(t.value));
+    if (isTel(t) && t.value.trim()) { t.value = telFormat(t.value); hint(t, telOk(t.value) ? null : MSG_TEL); }
+    if (isMail(t) && t.value.trim()) checkMail(t, false);
   }, true);
 
   function guard(form, e) {
     if (!form) return;
     var bad = null;
     Array.prototype.forEach.call(form.querySelectorAll("input[type=tel]"), function (inp) {
-      inp.value = format(inp.value);
-      var ok = valid(inp.value);
-      hint(inp, !ok);
+      inp.value = telFormat(inp.value);
+      var ok = telOk(inp.value);
+      hint(inp, ok ? null : MSG_TEL);
       if (!ok && !bad) bad = inp;
+    });
+    Array.prototype.forEach.call(form.querySelectorAll("input[type=email]"), function (inp) {
+      if (!checkMail(inp, true) && !bad) bad = inp;
     });
     if (bad) {
       e.preventDefault();
@@ -92,18 +166,33 @@
   }
   document.addEventListener("click", function (e) {
     var b = e.target && e.target.closest && e.target.closest("input[type=submit],button[type=submit],button:not([type])");
-    if (b && b.form) guard(b.form, e);
+    if (b && b.form && !b.closest(".flcr-msg")) guard(b.form, e);
   }, true);
   document.addEventListener("submit", function (e) { guard(e.target, e); }, true);
 
+  /* ---------- Préparation des champs ---------- */
   function prep() {
     Array.prototype.forEach.call(document.querySelectorAll("input[type=tel]"), function (inp) {
       inp.setAttribute("inputmode", "tel");
       inp.setAttribute("autocomplete", "tel");
     });
+    Array.prototype.forEach.call(document.querySelectorAll("input[type=email]"), function (inp) {
+      inp.setAttribute("autocomplete", "email");
+      inp.setAttribute("autocapitalize", "off");
+      inp.setAttribute("spellcheck", "false");
+    });
     Array.prototype.forEach.call(document.querySelectorAll("form textarea"), function (t) {
       t.dataset.flcrMin = t.offsetHeight || 80;
       if (t.value) grow(t);
+    });
+    /* Étoile sur les champs obligatoires dont le libellé est masqué (le texte d'exemple sert de libellé) */
+    Array.prototype.forEach.call(document.querySelectorAll(".dmforminput.required"), function (w) {
+      var lab = w.querySelector("label"), inp = w.querySelector("input:not([type=hidden]),textarea,select");
+      if (!inp || !inp.placeholder || /\*\s*$/.test(inp.placeholder)) return;
+      var hidden = !lab || lab.getAttribute("hide") === "true" || getComputedStyle(lab).display === "none";
+      if (!hidden) return;
+      inp.placeholder = inp.placeholder + " *";
+      if (inp.hasAttribute("data-placeholder-original")) inp.setAttribute("data-placeholder-original", inp.placeholder);
     });
   }
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", prep);
