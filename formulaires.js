@@ -220,7 +220,8 @@
       var normal = getComputedStyle(s).color;
       var maj = function () {
         var vide = !s.value;
-        s.style.color = vide && gris ? gris : "";
+        // !important : certains thèmes Duda imposent la couleur du texte des champs (formulaire sur fond marine)
+        if (vide && gris) s.style.setProperty("color", gris, "important"); else s.style.removeProperty("color");
         s.style.fontStyle = vide && ref ? getComputedStyle(ref, "::placeholder").fontStyle : "";
         Array.prototype.forEach.call(s.options, function (x) { x.style.color = normal; x.style.fontStyle = "normal"; });
       };
