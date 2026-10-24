@@ -217,13 +217,21 @@
       var ref = w.parentNode && w.parentNode.querySelector("input[placeholder]");
       var gris = "";
       try { gris = ref ? getComputedStyle(ref, "::placeholder").color : ""; } catch (e) {}
+      // Liste ouverte aux couleurs du champ : fond du champ (semi-transparent) posé sur le fond de la section, texte des autres champs
+      var rgba = function (c) { var m = String(c || "").match(/[\d.]+/g) || []; return m.length < 3 ? null : [+m[0], +m[1], +m[2], m[3] === undefined ? 1 : +m[3]]; };
+      var fondListe = "#FFFFFF", texteListe = "#0A1933";
+      try {
+        var f = rgba(getComputedStyle(s).backgroundColor) || [0, 0, 0, 0], d = [255, 255, 255, 1], p = s.parentElement;
+        for (; p && p !== document.documentElement; p = p.parentElement) { var c = rgba(getComputedStyle(p).backgroundColor); if (c && c[3] > 0.99) { d = c; break; } }
+        fondListe = "rgb(" + [0, 1, 2].map(function (k) { return Math.round(f[k] * f[3] + d[k] * (1 - f[3])); }).join(",") + ")";
+        texteListe = getComputedStyle(ref || s).color;
+      } catch (e) {}
       var maj = function () {
         var vide = !s.value;
         // !important : certains thèmes Duda imposent la couleur du texte des champs (formulaire sur fond marine)
         if (vide && gris) s.style.setProperty("color", gris, "important"); else s.style.removeProperty("color");
         s.style.fontStyle = vide && ref ? getComputedStyle(ref, "::placeholder").fontStyle : "";
-        // Liste ouverte : texte foncé sur fond blanc (sinon texte clair illisible sur le formulaire fond marine)
-        Array.prototype.forEach.call(s.options, function (x) { x.style.color = "#0A1933"; x.style.backgroundColor = "#FFFFFF"; x.style.fontStyle = "normal"; });
+        Array.prototype.forEach.call(s.options, function (x, i) { x.style.color = i === 0 && gris ? gris : texteListe; x.style.backgroundColor = fondListe; x.style.fontStyle = "normal"; });
       };
       s.addEventListener("change", maj);
       maj();
