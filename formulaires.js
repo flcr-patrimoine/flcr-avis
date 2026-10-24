@@ -217,13 +217,13 @@
       var ref = w.parentNode && w.parentNode.querySelector("input[placeholder]");
       var gris = "";
       try { gris = ref ? getComputedStyle(ref, "::placeholder").color : ""; } catch (e) {}
-      var normal = getComputedStyle(s).color;
       var maj = function () {
         var vide = !s.value;
         // !important : certains thèmes Duda imposent la couleur du texte des champs (formulaire sur fond marine)
         if (vide && gris) s.style.setProperty("color", gris, "important"); else s.style.removeProperty("color");
         s.style.fontStyle = vide && ref ? getComputedStyle(ref, "::placeholder").fontStyle : "";
-        Array.prototype.forEach.call(s.options, function (x) { x.style.color = normal; x.style.fontStyle = "normal"; });
+        // Liste ouverte : texte foncé sur fond blanc (sinon texte clair illisible sur le formulaire fond marine)
+        Array.prototype.forEach.call(s.options, function (x) { x.style.color = "#0A1933"; x.style.backgroundColor = "#FFFFFF"; x.style.fontStyle = "normal"; });
       };
       s.addEventListener("change", maj);
       maj();
