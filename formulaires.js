@@ -5,7 +5,11 @@
  * 2. E-mail : envoi bloqué si l'adresse est mal formée, suggestion en cas de faute de frappe
  *    (gmial.com -> gmail.com, .con -> .com…), un clic corrige.
  * 3. Message : la zone ne se redimensionne plus à la main, elle s'agrandit toute seule avec le texte.
- * 4. Champs obligatoires sans libellé visible : une étoile est ajoutée au texte d'exemple (Nom *).
+ * 4. Champs obligatoires sans libellé visible : une étoile est ajoutée au texte d'exemple (Nom *) ;
+ *    menu déroulant sans libellé visible : le libellé ("Projet") s'affiche en gris dans le champ.
+ * 5. Google Ads : un clic sur un lien téléphone (tel:) ou WhatsApp (wa.me) est compté comme conversion
+ *    "Clic téléphone (site)" / "Clic WhatsApp (site)" (objectif Contact). Les formulaires sont comptés
+ *    par la page /merci, déjà en place dans la balise Google.
  * Intégration : <script src="https://flcr-patrimoine.github.io/flcr-avis/formulaires.js" defer></script>
  */
 (function () {
@@ -170,6 +174,22 @@
   }, true);
   document.addEventListener("submit", function (e) { guard(e.target, e); }, true);
 
+  /* ---------- Google Ads : clics téléphone et WhatsApp ---------- */
+  var ADS = {
+    tel: "AW-18511725274/UlYWCOLWn6gdENqFivtE",
+    wa: "AW-18511725274/6m65COXWn6gdENqFivtE"
+  };
+  var vu = {};
+  document.addEventListener("click", function (e) {
+    var a = e.target && e.target.closest && e.target.closest("a[href]");
+    if (!a) return;
+    var h = a.getAttribute("href") || "";
+    var type = /^tel:/i.test(h) ? "tel" : /(wa\.me\/|api\.whatsapp\.com|^whatsapp:)/i.test(h) ? "wa" : null;
+    if (!type || vu[type] || typeof window.gtag !== "function") return;
+    vu[type] = true; /* une fois par page suffit (Google Ads compte 1 conversion par clic sur annonce) */
+    try { window.gtag("event", "conversion", { send_to: ADS[type], transport_type: "beacon" }); } catch (err) {}
+  }, true);
+
   /* ---------- Préparation des champs ---------- */
   function prep() {
     Array.prototype.forEach.call(document.querySelectorAll("input[type=tel]"), function (inp) {
@@ -184,6 +204,28 @@
     Array.prototype.forEach.call(document.querySelectorAll("form textarea"), function (t) {
       t.dataset.flcrMin = t.offsetHeight || 80;
       if (t.value) grow(t);
+    });
+    /* Menu déroulant dont le libellé est masqué : le libellé s'affiche dans le champ ("Projet"), en gris comme un texte d'exemple */
+    Array.prototype.forEach.call(document.querySelectorAll(".dmforminput select"), function (s) {
+      var w = s.closest(".dmforminput"), lab = w && w.querySelector("label");
+      if (!lab || s.dataset.flcrPh) return;
+      var hidden = lab.getAttribute("hide") === "true" || getComputedStyle(lab).display === "none";
+      var o = s.options[0];
+      if (!hidden || !o || o.value !== "" || o.text.trim()) return;
+      s.dataset.flcrPh = "1";
+      o.text = lab.textContent.replace(/\s*\*\s*$/, "").trim() + (s.required ? " *" : "");
+      var ref = w.parentNode && w.parentNode.querySelector("input[placeholder]");
+      var gris = "";
+      try { gris = ref ? getComputedStyle(ref, "::placeholder").color : ""; } catch (e) {}
+      var normal = getComputedStyle(s).color;
+      var maj = function () {
+        var vide = !s.value;
+        s.style.color = vide && gris ? gris : "";
+        s.style.fontStyle = vide && ref ? getComputedStyle(ref, "::placeholder").fontStyle : "";
+        Array.prototype.forEach.call(s.options, function (x) { x.style.color = normal; x.style.fontStyle = "normal"; });
+      };
+      s.addEventListener("change", maj);
+      maj();
     });
     /* Étoile sur les champs obligatoires dont le libellé est masqué (le texte d'exemple sert de libellé) */
     Array.prototype.forEach.call(document.querySelectorAll(".dmforminput.required"), function (w) {

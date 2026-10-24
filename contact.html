@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Ajouter le contact · FLCR Patrimoine</title>
+<style>
+  :root { --navy:#0A1933; --beige:#FAF7F5; --line:#E7E2DC; --grey:#8A8F99; --text:#2C3340; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--beige); color:var(--text); font-family:Montserrat, Arial, sans-serif; }
+  header { background:var(--navy); padding:16px 20px; }
+  header img { width:84px; height:auto; display:block; }
+  main { max-width:520px; margin:0 auto; padding:28px 16px 40px; }
+  .card { background:#fff; padding:24px 20px; }
+  .k { font-size:11px; letter-spacing:1px; text-transform:uppercase; color:var(--grey); margin:16px 0 4px; }
+  .nom { font-size:24px; font-weight:500; color:var(--navy); margin:0; }
+  .v { font-size:15px; color:var(--navy); word-break:break-word; }
+  button, .btn { display:block; width:100%; margin-top:24px; padding:15px 18px; border:0; background:var(--navy); color:#fff;
+    font:600 13px/1.2 Montserrat, Arial, sans-serif; letter-spacing:1px; text-transform:uppercase; cursor:pointer; text-align:center; text-decoration:none; }
+  .aide { font-size:13px; line-height:1.6; color:var(--grey); margin-top:16px; }
+  .vide { text-align:center; color:var(--grey); padding:40px 0; }
+</style>
+</head>
+<body>
+<header><img src="email/logo-flcr-clair.png" alt="FLCR Patrimoine"></header>
+<main>
+  <div class="card" id="carte"><p class="vide">Lien incomplet : ouvrez-le depuis la notification de demande.</p></div>
+</main>
+<script>
+(function () {
+  "use strict";
+  var q = new URLSearchParams(location.hash.slice(1));
+  var p = (q.get("p") || "").trim(), n = (q.get("n") || "").trim(), t = (q.get("t") || "").trim(),
+      e = (q.get("e") || "").trim(), o = (q.get("o") || "").trim(), d = (q.get("d") || "").trim();
+  if (!(p || n) || !(t || e)) return;
+  var fn = (p + " " + n).trim();
+  var esc = function (s) { return String(s).replace(/[\\;,]/g, "\\$&").replace(/\n/g, "\\n"); };
+  var note = "Demande via flcr-patrimoine.fr" + (d ? " le " + d : "") + (o ? " · " + o : "");
+  var vcf = ["BEGIN:VCARD", "VERSION:3.0", "N:" + esc(n) + ";" + esc(p) + ";;;", "FN:" + esc(fn)];
+  if (t) vcf.push("TEL;TYPE=CELL:" + t);
+  if (e) vcf.push("EMAIL;TYPE=INTERNET:" + e);
+  vcf.push("NOTE:" + esc(note), "END:VCARD");
+  var texte = vcf.join("\r\n") + "\r\n";
+  var h = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  var html = '<p class="k">Nouveau contact</p><p class="nom">' + h(fn) + "</p>";
+  if (t) html += '<p class="k">Téléphone</p><div class="v">' + h(t.replace(/^\+33(\d)(\d{2})(\d{2})(\d{2})(\d{2})$/, "0$1 $2 $3 $4 $5")) + "</div>";
+  if (e) html += '<p class="k">E-mail</p><div class="v">' + h(e) + "</div>";
+  if (o) html += '<p class="k">Projet</p><div class="v">' + h(o) + "</div>";
+  html += '<button type="button" id="ajouter">Enregistrer dans mes contacts</button>' +
+    '<p class="aide">Sur iPhone : touchez « Créer un contact ». Sur Android : ouvrez le fichier téléchargé, puis choisissez Contacts. Sur ordinateur : le fichier .vcf s\'importe dans Google Contacts (Importer).</p>';
+  document.getElementById("carte").innerHTML = html;
+  var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  document.getElementById("ajouter").addEventListener("click", function () {
+    if (ios) { location.href = "data:text/vcard;charset=utf-8," + encodeURIComponent(texte); return; }
+    var url = URL.createObjectURL(new Blob([texte], { type: "text/vcard;charset=utf-8" }));
+    var a = document.createElement("a");
+    a.href = url; a.download = (fn || "contact").replace(/[\\/:*?"<>|]/g, "") + ".vcf";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  });
+})();
+</script>
+</body>
+</html>
