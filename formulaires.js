@@ -10,6 +10,10 @@
  * 5. Google Ads : un clic sur un lien téléphone (tel:) ou WhatsApp (wa.me) est compté comme conversion
  *    "Clic téléphone (site)" / "Clic WhatsApp (site)" (objectif Contact). Les formulaires sont comptés
  *    par la page /merci, déjà en place dans la balise Google.
+ * 6. Statistiques anonymes pour le tableau de bord FLCR (flcr-pilotage-seo.lovable.app) : pages vues et clics
+ *    Appeler / WhatsApp / e-mail / formulaire envoyé (/merci), avec la source de la visite (annonce, fiche Google,
+ *    recherche, direct). Aucun cookie, aucun identifiant, aucune donnée saisie : seule la source de la visite
+ *    est gardée le temps de l'onglet (sessionStorage) pour rattacher les clics à la bonne source.
  * Intégration : <script src="https://flcr-patrimoine.github.io/flcr-avis/formulaires.js" defer></script>
  */
 (function () {
@@ -188,6 +192,51 @@
     if (!type || vu[type] || typeof window.gtag !== "function") return;
     vu[type] = true; /* une fois par page suffit (Google Ads compte 1 conversion par clic sur annonce) */
     try { window.gtag("event", "conversion", { send_to: ADS[type], transport_type: "beacon" }); } catch (err) {}
+  }, true);
+
+  /* ---------- Statistiques anonymes (tableau de bord FLCR) ---------- */
+  var STATS_URL = "https://flcr-pilotage-seo.lovable.app/api/public/site-event";
+  var statsOn = /(^|\.)flcr-patrimoine\.fr$/i.test(location.hostname) && !/[?&](dm_device|preview|nee)=/i.test(location.search);
+  var visite = null;
+  if (statsOn) {
+    try {
+      var refHost = "";
+      try { refHost = document.referrer ? new URL(document.referrer).hostname : ""; } catch (e) {}
+      var interne = /(^|\.)flcr-patrimoine\.fr$/i.test(refHost);
+      var stocke = null;
+      try { stocke = JSON.parse(sessionStorage.getItem("flcr_v") || "null"); } catch (e) {}
+      if (!stocke || !interne) {
+        /* Nouvelle visite : on ne garde que la provenance (paramètres de campagne, présence d'un clic d'annonce, site d'origine). */
+        var src = new URLSearchParams(location.search), q = new URLSearchParams();
+        ["utm_source", "utm_medium", "utm_campaign"].forEach(function (k) { if (src.get(k)) q.set(k, src.get(k).slice(0, 80)); });
+        ["gclid", "gbraid", "wbraid"].forEach(function (k) { if (src.has(k)) q.set(k, "1"); });
+        visite = { q: q.toString(), r: interne ? "" : refHost, l: true };
+        try { sessionStorage.setItem("flcr_v", JSON.stringify({ q: visite.q, r: visite.r })); } catch (e) {}
+      } else {
+        visite = { q: stocke.q || "", r: stocke.r || "", l: false };
+      }
+    } catch (e) { statsOn = false; }
+  }
+  var dernier = {};
+  function stat(type) {
+    if (!statsOn || !visite) return;
+    var now = Date.now();
+    if (type !== "page" && dernier[type] && now - dernier[type] < 2000) return; /* double clic */
+    dernier[type] = now;
+    var data = JSON.stringify({ t: type, p: location.pathname, q: visite.q, r: visite.r, l: type === "page" && visite.l });
+    try {
+      if (navigator.sendBeacon && navigator.sendBeacon(STATS_URL, new Blob([data], { type: "text/plain" }))) return;
+    } catch (e) {}
+    try { fetch(STATS_URL, { method: "POST", body: data, keepalive: true, mode: "no-cors", headers: { "Content-Type": "text/plain" } }); } catch (e) {}
+  }
+  stat("page");
+  if (/^\/merci\/?$/i.test(location.pathname)) stat("form");
+  document.addEventListener("click", function (e) {
+    var a = e.target && e.target.closest && e.target.closest("a[href]");
+    if (!a) return;
+    var h = a.getAttribute("href") || "";
+    var type = /^tel:/i.test(h) ? "tel" : /(wa\.me\/|api\.whatsapp\.com|^whatsapp:)/i.test(h) ? "wa" : /^mailto:/i.test(h) ? "mail" : null;
+    if (type) stat(type);
   }, true);
 
   /* ---------- Préparation des champs ---------- */
