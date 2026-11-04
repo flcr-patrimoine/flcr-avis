@@ -198,6 +198,13 @@
   var STATS_URL = "https://flcr-pilotage-seo.lovable.app/api/public/site-event";
   var statsOn = /(^|\.)flcr-patrimoine\.fr$/i.test(location.hostname) && !/[?&](dm_device|preview|nee)=/i.test(location.search);
   var visite = null;
+  /* Exclure ses propres visites : ouvrir une fois le site avec ?flcr_interne=1 sur chaque appareil (?flcr_interne=0 pour annuler). */
+  try {
+    var interneParam = new URLSearchParams(location.search).get("flcr_interne");
+    if (interneParam === "1") localStorage.setItem("flcr_interne", "1");
+    if (interneParam === "0") localStorage.removeItem("flcr_interne");
+    if (localStorage.getItem("flcr_interne") === "1") statsOn = false;
+  } catch (e) {}
   if (statsOn) {
     try {
       var refHost = "";
