@@ -12,8 +12,9 @@
  *    par la page /merci, déjà en place dans la balise Google.
  * 6. Statistiques anonymes pour le tableau de bord FLCR (flcr-pilotage-seo.lovable.app) : pages vues et clics
  *    Appeler / WhatsApp / e-mail / formulaire envoyé (/merci), avec la source de la visite (annonce, fiche Google,
- *    recherche, direct). Aucun cookie, aucun identifiant, aucune donnée saisie : seule la source de la visite
- *    est gardée le temps de l'onglet (sessionStorage) pour rattacher les clics à la bonne source.
+ *    recherche, direct), temps passé et profondeur de lecture par page. Aucun cookie, aucune donnée saisie : la source
+ *    de la visite et un numéro de visite tiré au hasard sont gardés le temps de l'onglet (sessionStorage) pour relier
+ *    les pages d'une même visite ; ils disparaissent à la fermeture de l'onglet.
  * Intégration : <script src="https://flcr-patrimoine.github.io/flcr-avis/formulaires.js" defer></script>
  */
 (function () {
@@ -212,25 +213,29 @@
       var interne = /(^|\.)flcr-patrimoine\.fr$/i.test(refHost);
       var stocke = null;
       try { stocke = JSON.parse(sessionStorage.getItem("flcr_v") || "null"); } catch (e) {}
-      if (!stocke || !interne) {
+      if (!stocke || !interne || !stocke.v) {
         /* Nouvelle visite : on ne garde que la provenance (paramètres de campagne, présence d'un clic d'annonce, site d'origine). */
         var src = new URLSearchParams(location.search), q = new URLSearchParams();
         ["utm_source", "utm_medium", "utm_campaign"].forEach(function (k) { if (src.get(k)) q.set(k, src.get(k).slice(0, 80)); });
         ["gclid", "gbraid", "wbraid"].forEach(function (k) { if (src.has(k)) q.set(k, "1"); });
-        visite = { q: q.toString(), r: interne ? "" : refHost, l: true };
-        try { sessionStorage.setItem("flcr_v", JSON.stringify({ q: visite.q, r: visite.r })); } catch (e) {}
+        var garde = stocke && interne; /* visite déjà en cours, enregistrée avant l'ajout du numéro */
+        visite = garde ? { q: stocke.q || "", r: stocke.r || "", l: false } : { q: q.toString(), r: interne ? "" : refHost, l: true };
+        visite.v = Math.random().toString(36).slice(2, 12);
+        try { sessionStorage.setItem("flcr_v", JSON.stringify({ q: visite.q, r: visite.r, v: visite.v })); } catch (e) {}
       } else {
-        visite = { q: stocke.q || "", r: stocke.r || "", l: false };
+        visite = { q: stocke.q || "", r: stocke.r || "", l: false, v: stocke.v };
       }
     } catch (e) { statsOn = false; }
   }
   var dernier = {};
-  function stat(type) {
+  function stat(type, extra) {
     if (!statsOn || !visite) return;
     var now = Date.now();
-    if (type !== "page" && dernier[type] && now - dernier[type] < 2000) return; /* double clic */
+    if (type !== "page" && type !== "temps" && dernier[type] && now - dernier[type] < 2000) return; /* double clic */
     dernier[type] = now;
-    var data = JSON.stringify({ t: type, p: location.pathname, q: visite.q, r: visite.r, l: type === "page" && visite.l });
+    var msg = { t: type, p: location.pathname, q: visite.q, r: visite.r, l: type === "page" && visite.l, v: visite.v };
+    if (extra) { msg.d = extra.d; msg.s = extra.s; }
+    var data = JSON.stringify(msg);
     try {
       if (navigator.sendBeacon && navigator.sendBeacon(STATS_URL, new Blob([data], { type: "text/plain" }))) return;
     } catch (e) {}
@@ -238,6 +243,23 @@
   }
   stat("page");
   if (/^\/merci\/?$/i.test(location.pathname)) stat("form");
+
+  /* Temps passé sur la page (seulement quand elle est affichée) et jusqu'où elle a été lue, envoyés quand on la quitte. */
+  var vuDepuis = document.visibilityState === "visible" ? Date.now() : 0, cumul = 0, lu = 0;
+  function mesureLecture() {
+    var h = document.documentElement, haut = h.scrollHeight - window.innerHeight;
+    lu = Math.max(lu, haut <= 10 ? 100 : Math.min(100, Math.round(((window.scrollY || h.scrollTop) / haut) * 100)));
+  }
+  window.addEventListener("scroll", mesureLecture, { passive: true });
+  function envoieTemps() {
+    if (vuDepuis) { cumul += Date.now() - vuDepuis; vuDepuis = 0; }
+    var d = Math.round(cumul / 1000);
+    if (d >= 1) { mesureLecture(); stat("temps", { d: d, s: lu }); cumul = 0; }
+  }
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden") envoieTemps(); else vuDepuis = Date.now();
+  });
+  window.addEventListener("pagehide", envoieTemps);
   document.addEventListener("click", function (e) {
     var a = e.target && e.target.closest && e.target.closest("a[href]");
     if (!a) return;
