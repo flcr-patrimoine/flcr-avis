@@ -12,7 +12,8 @@
  *    par la page /merci, déjà en place dans la balise Google.
  * 6. Statistiques anonymes pour le tableau de bord FLCR (flcr-pilotage-seo.lovable.app) : pages vues et clics
  *    Appeler / WhatsApp / e-mail / formulaire envoyé (/merci), avec la source de la visite (annonce, fiche Google,
- *    recherche, direct), temps passé et profondeur de lecture par page. Aucun cookie, aucune donnée saisie : la source
+ *    recherche, direct), temps passé, profondeur de lecture et temps de chargement par page, numéro ou e-mail copié,
+ *    formulaire commencé, boutons cliqués, questions de la FAQ ouvertes, simulateur de loyer utilisé. Aucun cookie, aucune donnée saisie : la source
  *    de la visite et un numéro de visite tiré au hasard sont gardés le temps de l'onglet (sessionStorage) pour relier
  *    les pages d'une même visite ; ils disparaissent à la fermeture de l'onglet.
  * Intégration : <script src="https://flcr-patrimoine.github.io/flcr-avis/formulaires.js" defer></script>
@@ -240,10 +241,11 @@
   function stat(type, extra) {
     if (!statsOn || !visite) return;
     var now = Date.now();
-    if (type !== "page" && type !== "temps" && dernier[type] && now - dernier[type] < 2000) return; /* double clic */
-    dernier[type] = now;
+    var cle = type + (extra && extra.b ? ":" + extra.b : "");
+    if (type !== "page" && type !== "temps" && dernier[cle] && now - dernier[cle] < 2000) return; /* double clic */
+    dernier[cle] = now;
     var msg = { t: type, p: location.pathname, q: visite.q, r: visite.r, l: type === "page" && visite.l, v: visite.v };
-    if (extra) { msg.d = extra.d; msg.s = extra.s; }
+    if (extra) { msg.d = extra.d; msg.s = extra.s; msg.b = extra.b; msg.m = extra.m; }
     var data = JSON.stringify(msg);
     try {
       if (navigator.sendBeacon && navigator.sendBeacon(STATS_URL, new Blob([data], { type: "text/plain" }))) return;
@@ -263,12 +265,74 @@
   function envoieTemps() {
     if (vuDepuis) { cumul += Date.now() - vuDepuis; vuDepuis = 0; }
     var d = Math.round(cumul / 1000);
-    if (d >= 1) { mesureLecture(); stat("temps", { d: d, s: lu }); cumul = 0; }
+    if (d >= 1) { mesureLecture(); stat("temps", { d: d, s: lu, m: chargement() }); cumul = 0; }
   }
   document.addEventListener("visibilitychange", function () {
     if (document.visibilityState === "hidden") envoieTemps(); else vuDepuis = Date.now();
   });
   window.addEventListener("pagehide", envoieTemps);
+  /* Temps de chargement de la page (envoyé une seule fois, avec le premier temps passé) */
+  var chargeEnvoye = false;
+  function chargement() {
+    if (chargeEnvoye) return undefined;
+    try {
+      var n = performance.getEntriesByType && performance.getEntriesByType("navigation")[0];
+      var ms = n ? (n.loadEventEnd || n.domContentLoadedEventEnd) : 0;
+      if (ms > 0) { chargeEnvoye = true; return Math.round(ms); }
+    } catch (e) {}
+    return undefined;
+  }
+
+  /* Signes d'intérêt avant un contact. On n'envoie jamais ce que la personne tape : seulement le texte du bouton ou de la question. */
+  var texte = function (el) { return (el && (el.innerText || el.textContent || el.value || "") || "").replace(/\s+/g, " ").trim().slice(0, 100); };
+  // Numéro ou e-mail de l'agence copié (appui long sur mobile, copier-coller sur ordinateur)
+  document.addEventListener("copy", function () {
+    var sel = "";
+    try { sel = String(window.getSelection ? window.getSelection() : ""); } catch (e) {}
+    if (/670797135/.test(sel.replace(/\D/g, ""))) stat("copie", { b: "téléphone" });
+    else if (/@flcr-patrimoine\.fr/i.test(sel)) stat("copie", { b: "e-mail" });
+  }, true);
+  // Formulaire commencé (une fois par formulaire et par page) : le formulaire non envoyé se voit dans le tableau de bord
+  var formsCommences = [];
+  function nomFormulaire(f) {
+    if (f.closest("#hamburger-drawer, .layout-drawer, header, #flex-header")) return "menu";
+    var w = f.closest(".dmform"), t = w && w.querySelector(".dmform-title, .dmwidget-title");
+    var nom = t && t.offsetParent !== null ? texte(t) : "";
+    if (nom && !/^formulaire$/i.test(nom)) return nom.toLowerCase();
+    var tous = Array.prototype.filter.call(document.querySelectorAll("form"), function (x) { return !x.closest("#hamburger-drawer, .layout-drawer, header, #flex-header"); });
+    return tous.length > 1 ? "page (" + (tous.indexOf(f) + 1) + "/" + tous.length + ")" : "page";
+  }
+  document.addEventListener("input", function (e) {
+    var el = e.target, f = el && el.closest && el.closest("form");
+    if (!f || el.type === "hidden" || formsCommences.indexOf(f) >= 0) return;
+    formsCommences.push(f);
+    stat("form_debut", { b: nomFormulaire(f) });
+  }, true);
+  // Simulateur de loyer utilisé (une fois par page)
+  var simuVu = false;
+  function simu(e) {
+    var w = e.target && e.target.closest && e.target.closest(".flcr-est");
+    if (!w || simuVu || (e.target.closest && e.target.closest("a"))) return;
+    simuVu = true;
+    stat("simu");
+  }
+  document.addEventListener("input", simu, true);
+  document.addEventListener("click", simu, true);
+  // Boutons et questions de la FAQ
+  document.addEventListener("click", function (e) {
+    var t = e.target;
+    if (!t || !t.closest) return;
+    var q = t.closest(".accordion-title, .flcr-faq summary, details > summary");
+    if (q) { stat("faq", { b: texte(q.querySelector(".title-text") || q) }); return; }
+    var a = t.closest("a.dmWidget, a.flcr-est__btn, a[aria-label='Voir les avis de nos clients'], .dmformsubmit input[type=submit], button[type=submit]");
+    if (!a) return;
+    var h = a.getAttribute("href") || "";
+    if (/^(tel:|mailto:)|wa\.me\/|whatsapp/i.test(h)) return; // déjà comptés comme contacts
+    var nom = a.getAttribute("aria-label") === "Voir les avis de nos clients" ? "Pastille avis" : texte(a);
+    if (a.closest(".flcr-est")) nom = "Simulateur : " + nom;
+    else if (a.matches("input[type=submit], button[type=submit]")) nom = "Envoyer (" + nomFormulaire(a.closest("form") || a) + ")";
+    if (nom) stat("cta", { b: nom });
+  }, true);
   document.addEventListener("click", function (e) {
     var a = e.target && e.target.closest && e.target.closest("a[href]");
     if (!a) return;
