@@ -26,8 +26,17 @@
   css.textContent =
     "form textarea{resize:none!important;overflow-y:hidden;}" +
     ".flcr-msg{color:#E0584D;font-size:13px;line-height:1.4;margin-top:6px;}" +
-    ".flcr-msg button{all:unset;cursor:pointer;text-decoration:underline;font-weight:600;color:inherit;}";
+    ".flcr-msg button{all:unset;cursor:pointer;text-decoration:underline;font-weight:600;color:inherit;}" +
+    /* Remplissage automatique du navigateur (Chrome, Safari) : garder le fond et la couleur du texte du champ,
+       sinon le texte blanc des formulaires sur fond marine devient invisible sur le fond bleu clair du navigateur */
+    "form input:-webkit-autofill,form input:-webkit-autofill:hover,form input:-webkit-autofill:focus,form textarea:-webkit-autofill,form select:-webkit-autofill{" +
+    "-webkit-text-fill-color:var(--flcr-af-fg,currentColor)!important;caret-color:var(--flcr-af-fg,currentColor);" +
+    "-webkit-box-shadow:0 0 0 1000px var(--flcr-af-bg,#fff) inset!important;box-shadow:0 0 0 1000px var(--flcr-af-bg,#fff) inset!important;" +
+    "transition:background-color 99999s ease-out 0s;}";
   (document.head || document.documentElement).appendChild(css);
+
+  /* Couleur CSS en [r, g, b, a] */
+  function couleur(c) { var m = String(c || "").match(/[\d.]+/g) || []; return m.length < 3 ? null : [+m[0], +m[1], +m[2], m[3] === undefined ? 1 : +m[3]]; }
 
   /* ---------- Message d'aide sous un champ ---------- */
   function hint(inp, text, fix) {
@@ -313,6 +322,18 @@
       };
       s.addEventListener("change", maj);
       maj();
+    });
+    /* Couleurs de chaque champ gardées pour le remplissage automatique (voir le style en haut) */
+    Array.prototype.forEach.call(document.querySelectorAll("form input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=submit]),form textarea,form select"), function (inp) {
+      if (inp.dataset.flcrAf) return;
+      inp.dataset.flcrAf = "1";
+      try {
+        var cs = getComputedStyle(inp);
+        var f = couleur(cs.backgroundColor) || [0, 0, 0, 0], d = [255, 255, 255, 1];
+        for (var p = inp.parentElement; p && p !== document.documentElement; p = p.parentElement) { var c = couleur(getComputedStyle(p).backgroundColor); if (c && c[3] > 0.9) { d = c; break; } }
+        inp.style.setProperty("--flcr-af-bg", "rgb(" + [0, 1, 2].map(function (k) { return Math.round(f[k] * f[3] + d[k] * (1 - f[3])); }).join(",") + ")");
+        inp.style.setProperty("--flcr-af-fg", cs.color);
+      } catch (e) {}
     });
     /* Étoile sur les champs obligatoires dont le libellé est masqué (le texte d'exemple sert de libellé) */
     Array.prototype.forEach.call(document.querySelectorAll(".dmforminput.required"), function (w) {
